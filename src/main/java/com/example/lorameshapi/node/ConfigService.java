@@ -16,9 +16,7 @@ public class ConfigService {
     private Config defaultConfig() {
         Config config = new Config();
         config.setId(1);
-        config.setFrequency(20);
-        config.setDataRate(20);
-        config.setSpreadingFactor(20);
+        config.setChannelCode("c000001a0644");
         return config;
     }
 }

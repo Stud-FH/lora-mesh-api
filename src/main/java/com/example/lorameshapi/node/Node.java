@@ -19,13 +19,13 @@ public class Node {
     private Long serialId;
 
     @Column
-    private int nodeId;
+    private int nodeId = -1;
 
     @Enumerated(EnumType.STRING)
-    private NodeStatus status;
+    private NodeStatus status = NodeStatus.Down;
 
     @Column
-    private long lastUpdated;
+    private long lastUpdated = System.currentTimeMillis();
 
     @ElementCollection
     private Map<Integer, Double> retx = new HashMap<>();
@@ -38,4 +38,7 @@ public class Node {
 
     @ElementCollection
     private Set<Integer> missingMessages = new HashSet<>();
+
+    @Column(length = 8192)
+    private String ipa;
 }

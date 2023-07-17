@@ -1,0 +1,38 @@
+version: "2"
+services:
+
+  tomcat:
+    container_name: lma-backend
+    image: tomcat:8.5-jre8
+    ports:
+      - "8080:8080"
+      - "80:80"
+      - "5005:5005"
+    volumes:
+      - ./:/lma
+    environment:
+      CATALINA_OPTS: >-
+        -Xdebug
+#        -Xrunjdwp:transport=dt_socket,server=y,address=5005,suspend=n
+#        -Dhttps.proxyHost=prc-as-01.uat.cs.intern.ti8m.ch
+#        -Dhttps.proxyPort=3333
+#        -Dhttp.nonProxyHosts=www.ecall.ch
+#        -Djavax.net.ssl.trustStore=/prcp/env/truststore/prc_truststore_bundle.jks
+#        -Djavax.net.ssl.trustStorePassword=password
+#        -Djavax.net.ssl.trustStoreType=jks
+#        -Dspring.profiles.active=dev-docker,dev,prc-external
+#        -DPRC_PROJECT_ROOT=/prcp
+#        -Dlog4j.configurationFile=/prcp/env/log4j2-local.xml
+#        -Djdk.tls.ephemeralDHKeySize=2048
+#        -Djava.protocol.handler.pkgs=org.apache.catalina.webresources
+#        -Dorg.apache.catalina.security.SecurityListener.UMASK=0027
+
+
+  phantomjs:
+    container_name: prc-phantomjs
+    image: wernight/phantomjs:2.1.1
+    ports:
+      - "3003:3003"
+    volumes:
+      - "../packaging/phantomjs/src/main/static-rpm-content/highcharts:/data"
+    command: "phantomjs /data/highcharts-convert.js -host 0.0.0.0 -port 3003"

@@ -92,4 +92,11 @@ public class NodeService {
     public List<Node> query() {
         return nodeRepository.findAll();
     }
+
+    public String status(long serialId, String ipa) {
+        Node entity = nodeRepository.findById(serialId).orElseGet(Node::new);
+        entity.setIpa(ipa);
+        entity = nodeRepository.save(entity);
+        return entity.getStatus().toString();
+    }
 }

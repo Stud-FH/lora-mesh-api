@@ -15,9 +15,9 @@ public class PceController {
     private final NodeService nodeService;
 
     @PostMapping
-    public Config heartbeat(@RequestBody Node node) {
+    public String heartbeat(@RequestBody Node node) {
         nodeService.put(node);
-        return configService.get();
+        return configService.get().getChannelCode();
     }
 
     @PostMapping("/node-id")

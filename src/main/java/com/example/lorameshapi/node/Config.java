@@ -16,12 +16,6 @@ public class Config {
     private Integer id;
 
     @Column
-    private int frequency;
-
-    @Column
-    private int dataRate;
-
-    @Column
-    private int spreadingFactor;
+    private String channelCode;
 
 }
