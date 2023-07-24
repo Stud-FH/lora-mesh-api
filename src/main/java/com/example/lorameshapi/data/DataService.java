@@ -1,18 +1,41 @@
 package com.example.lorameshapi.data;
 
+import com.example.lorameshapi.node.NodeService;
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.text.DateFormat;
+import java.util.Date;
 import java.util.List;
 
 @AllArgsConstructor
 @Service
 public class DataService {
 
-    private final DataRepository dataRepository;
+    private final Logger logger = LoggerFactory.getLogger(DataService.class);
 
-    public void persist(Data data) {
-        this.dataRepository.save(data);
+    private final DataRepository dataRepository;
+    private final NodeService nodeService;
+
+    private final DateFormat df;
+
+    public void persist(Message message) {
+        var node =nodeService.resolveNodeId(MessageUtil.nodeId(message.getHeader()));
+        String key = String.format("%s-%s-%d", node.getId(), df.format(new Date()), message.getHeader());
+
+        try {
+            Files.write(Path.of("/data/data/"+key+".txt"), message.getData());
+            Data data = new Data();
+            data.setId(key);
+            data.setHeader(message.getHeader());
+            this.dataRepository.save(data);
+        } catch (Exception e) {
+            logger.error(e.toString());
+        }
     }
 
     public List<Data> query() {

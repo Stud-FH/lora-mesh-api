@@ -4,10 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Getter
 @Setter
@@ -15,17 +12,17 @@ import java.util.Set;
 public class Node {
 
     @Id
-    @Column(name = "serial_id", nullable = false)
-    private Long serialId;
+    @Column(name = "id", nullable = false)
+    private Long id;
 
     @Column
-    private int nodeId = -1;
+    private int nodeId;
 
     @Enumerated(EnumType.STRING)
-    private NodeStatus status = NodeStatus.Down;
+    private NodeStatus status;
 
     @Column
-    private long lastUpdated = System.currentTimeMillis();
+    private long lastUpdated;
 
     @ElementCollection
     private Map<Integer, Double> retx = new HashMap<>();
@@ -37,8 +34,23 @@ public class Node {
     private int nextReceivingCounter = 0;
 
     @ElementCollection
+    private Set<Integer> routing = new HashSet<>();
+
+    @ElementCollection
     private Set<Integer> missingMessages = new HashSet<>();
 
-    @Column(length = 8192)
-    private String ipa;
+    @ElementCollection
+    private List<String> statusKeys = new ArrayList<>();
+
+    @Transient
+    private transient Map<Node, Double> distance;
+
+    @Transient
+    private transient Map<Node, Node> trace;
+
+    @Transient
+    private transient Set<Node> uplinkRouting;
+
+    @Transient
+    private transient Set<Node> downlinkRouting;
 }

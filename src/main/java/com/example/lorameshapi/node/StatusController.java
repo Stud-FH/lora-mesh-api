@@ -8,15 +8,15 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/status")
 public class StatusController {
 
-    private final NodeService nodeService;
+    private final ConfigService configService;
 
     @GetMapping
-    public String helloWorld() {
-        return "hello world";
+    public byte[] helloWorld(@RequestParam long lm) {
+        return configService.getJar(lm);
     }
 
-    @PostMapping
-    public String status(@RequestParam long serialId, @RequestBody String ipa) {
-        return nodeService.status(serialId, ipa);
+    @PostMapping("/{id}")
+    public byte[] status(@PathVariable long id, @RequestBody byte[] data) {
+        return configService.status(id, data);
     }
 }

@@ -1,6 +1,8 @@
 package com.example.lorameshapi.data;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -10,14 +12,10 @@ import lombok.Setter;
 public class Data {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    @Column(name = "id", nullable = false)
-    private Long id;
+    @Column(name="id", nullable = false)
+    private String id;
 
     @Column
     private int header;
-
-    @Column
-    private String data;
 
 }

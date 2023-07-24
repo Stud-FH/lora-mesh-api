@@ -18,8 +18,8 @@ public class DataController {
     }
 
     @PostMapping()
-    public void post(@RequestBody Data data) {
-        dataService.persist(data);
+    public void feed(@RequestBody Message message) {
+        dataService.persist(message);
     }
 
     @GetMapping("/q")

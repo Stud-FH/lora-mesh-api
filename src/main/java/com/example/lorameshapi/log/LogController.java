@@ -13,12 +13,12 @@ public class LogController {
     private final LogService logService;
 
     @GetMapping("/q")
-    List<LogEntry> query() {
+    List<LogEvent> query() {
         return logService.query();
     }
 
-    @PostMapping
-    void log(@RequestBody LogEntry data) {
-        logService.log(data);
+    @PostMapping("/{id}")
+    void log(@PathVariable long id, @RequestBody LogEntry data) {
+        logService.log(id, data);
     }
 }

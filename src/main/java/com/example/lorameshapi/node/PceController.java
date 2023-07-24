@@ -1,5 +1,6 @@
 package com.example.lorameshapi.node;
 
+import com.example.lorameshapi.data.Message;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,16 +16,16 @@ public class PceController {
     private final NodeService nodeService;
 
     @PostMapping
-    public String heartbeat(@RequestBody Node node) {
-        nodeService.put(node);
-        return configService.get().getChannelCode();
+    public String heartbeat(@RequestBody NodeInfo data) {
+        nodeService.put(data);
+        return configService.getChannel();
     }
 
     @PostMapping("/node-id")
     public int allocateNodeId(
-            @RequestParam int serialId,
             @RequestParam int mediatorId,
-            @RequestParam double mediatorRetx
+            @RequestParam double mediatorRetx,
+            @RequestBody long serialId
     ) {
         var result = nodeService.allocateNodeId(serialId);
         if (mediatorId != -1) {
@@ -35,11 +36,8 @@ public class PceController {
 
     @PostMapping("/feed")
     public List<String> feed(
-            @RequestParam int controllerSerialId,
-            @RequestBody Node data) {
-        nodeService.feed(data);
-        // todo generate commands
-        return new ArrayList<>();
+            @RequestBody Message data) {
+        return nodeService.feed(data);
     }
 
     @GetMapping("/q")

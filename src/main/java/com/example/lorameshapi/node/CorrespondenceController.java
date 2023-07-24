@@ -13,19 +13,24 @@ public class CorrespondenceController {
 
     private final NodeService nodeService;
 
-    @GetMapping("/in")
+    @PostMapping("/in")
     public Collection<Integer> post(
-            @RequestParam int nodeId,
-            @RequestParam int counter
+            @RequestBody int header
     ) {
-        return nodeService.registerAndListLosses(nodeId, counter);
+        return nodeService.registerAndListLosses(header);
     }
 
-    @GetMapping("/out")
+    @GetMapping("/out/{nodeId}")
     public int get(
-            @RequestParam int nodeId,
-            @RequestParam Optional<Boolean> increment
+            @PathVariable int nodeId
     ) {
-        return nodeService.getCorrespondenceCounter(nodeId, increment.orElse(false));
+        return nodeService.getCorrespondenceCounter(nodeId, false);
+    }
+
+    @PostMapping("/out/{nodeId}")
+    public int getAndIncrement(
+            @PathVariable int nodeId
+    ) {
+        return nodeService.getCorrespondenceCounter(nodeId, true);
     }
 }

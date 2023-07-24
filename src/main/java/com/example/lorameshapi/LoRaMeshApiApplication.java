@@ -17,7 +17,6 @@ import java.util.concurrent.TimeUnit;
 @AllArgsConstructor
 @RestController
 public class LoRaMeshApiApplication {
-
     private final Logger logger = LoggerFactory.getLogger(LoRaMeshApiApplication.class);
 
     public static void main(String[] args) {
@@ -34,7 +33,7 @@ public class LoRaMeshApiApplication {
         logger.info("Port: " + request.getRemotePort());
         logger.info("Address: " + request.getRemoteAddr());
         logger.info("User: " + request.getRemoteUser());
-        return "Hello World";
+        return "Version 2";
     }
 
 }
