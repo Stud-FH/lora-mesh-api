@@ -36,10 +36,14 @@ public class ConfigService {
     }
 
     public byte[] status(long id, byte[] data) {
+        if (!new File("/data/node-status").mkdirs()) {
+            logger.warn("could not create directories");
+        }
         Node entity = nodeService.getById(id);
         String key = String.format("%d-%s", id, df.format(new Date()));
         try {
-            Files.write(Path.of("/data/node-status/"+key+".txt"), data);
+            Path path = Path.of("/data/node-status/"+key+".txt");
+            Files.write(path, data);
             entity.getStatusKeys().add(key);
             nodeRepository.save(entity);
         } catch (Exception e) {

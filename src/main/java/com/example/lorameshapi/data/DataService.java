@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.DateFormat;
@@ -24,11 +25,15 @@ public class DataService {
     private final DateFormat df;
 
     public void persist(Message message) {
+        if (!new File("/data/data").mkdirs()) {
+            logger.warn("could not create directories");
+        }
         var node =nodeService.resolveNodeId(MessageUtil.nodeId(message.getHeader()));
         String key = String.format("%s-%s-%d", node.getId(), df.format(new Date()), message.getHeader());
 
         try {
-            Files.write(Path.of("/data/data/"+key+".txt"), message.getData());
+            Path path = Path.of("/data/data/"+key+".txt");
+            Files.write(path, message.getData());
             Data data = new Data();
             data.setId(key);
             data.setHeader(message.getHeader());

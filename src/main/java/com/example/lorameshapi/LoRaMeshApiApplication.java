@@ -33,7 +33,8 @@ public class LoRaMeshApiApplication {
         logger.info("Port: " + request.getRemotePort());
         logger.info("Address: " + request.getRemoteAddr());
         logger.info("User: " + request.getRemoteUser());
-        return "Version 2";
+
+        return "Version 3";
     }
 
 }
