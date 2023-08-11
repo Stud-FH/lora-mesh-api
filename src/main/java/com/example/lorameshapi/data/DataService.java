@@ -25,18 +25,22 @@ public class DataService {
     private final DateFormat df;
 
     public void persist(Message message) {
-        if (!new File("/data/data").mkdirs()) {
-            logger.warn("could not create directories");
+        File file = new File("/data/data");
+        if (!file.exists() && !file.mkdirs()) {
+            logger.warn("could not create directory " + file);
         }
-        var node =nodeService.resolveNodeId(MessageUtil.nodeId(message.getHeader()));
+        var nodeId = MessageUtil.nodeId(message.getHeader());
+        var counter = MessageUtil.counter(message.getHeader());
+        var node =nodeService.resolveNodeId(nodeId);
         String key = String.format("%s-%s-%d", node.getId(), df.format(new Date()), message.getHeader());
 
         try {
             Path path = Path.of("/data/data/"+key+".txt");
             Files.write(path, message.getData());
             Data data = new Data();
-            data.setId(key);
             data.setHeader(message.getHeader());
+            data.setNodeId(nodeId);
+            data.setCounter(counter);
             this.dataRepository.save(data);
         } catch (Exception e) {
             logger.error(e.toString());

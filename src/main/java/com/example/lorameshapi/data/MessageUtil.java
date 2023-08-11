@@ -10,7 +10,7 @@ public class MessageUtil {
     }
 
     public static int counter(int header) {
-        return header & 7936;
+        return (header & 7936) >>> 8;
     }
 
     public static boolean isJoin(int header) {

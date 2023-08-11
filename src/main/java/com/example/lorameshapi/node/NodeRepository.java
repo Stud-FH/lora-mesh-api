@@ -9,5 +9,5 @@ public interface NodeRepository extends JpaRepository<Node, Long> {
 
     boolean existsByNodeId(int nodeId);
     Optional<Node> findByNodeId(int nodeId);
-    Collection<Node> findAllByStatusAndLastUpdatedGreaterThanEqual(NodeStatus status, long lastUpdated);
+    Collection<Node> findAllByLastUpdatedGreaterThanEqual(long lastUpdated);
 }

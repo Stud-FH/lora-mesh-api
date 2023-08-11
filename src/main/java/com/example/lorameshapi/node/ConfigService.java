@@ -36,8 +36,9 @@ public class ConfigService {
     }
 
     public byte[] status(long id, byte[] data) {
-        if (!new File("/data/node-status").mkdirs()) {
-            logger.warn("could not create directories");
+        File file = new File("/data/node-status");
+        if (!file.exists() && !file.mkdirs()) {
+            logger.warn("could not create directory " + file);
         }
         Node entity = nodeService.getById(id);
         String key = String.format("%d-%s", id, df.format(new Date()));

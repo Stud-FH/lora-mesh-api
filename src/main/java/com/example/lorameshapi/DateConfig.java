@@ -8,7 +8,7 @@ import java.text.SimpleDateFormat;
 
 @Configuration
 public class DateConfig {
-    private static final DateFormat df = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss.SSSS_Z:");
+    private static final DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH_mm_ss.SSSS Z");
 
 
     @Bean

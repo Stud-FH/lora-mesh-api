@@ -15,27 +15,32 @@ import java.util.List;
 @AllArgsConstructor
 @Service
 public class LogService {
-
     private final Logger logger = LoggerFactory.getLogger(LogService.class);
 
     private final DateFormat df;
 
     private final LogEventRepository logEventRepository;
 
-    public void log(long id, LogEntry data) {
-        if (!new File("/data/log").mkdirs()) {
-            logger.warn("could not create directories");
-        }
-        String key = String.format("%d-%s-%s", id, data.getSeverity(), df.format(new Date()));
+    public void log(long sid, LogEntry data) {
         LogEvent event = new LogEvent();
-        event.setId(key);
+        event.setSid(sid);
         event.setTimestamp(System.currentTimeMillis());
         event.setSeverity(data.getSeverity());
         event.setModuleInfo(data.getModuleInfo());
+        StringBuilder sb = new StringBuilder();
+        sb.append(data.getModuleInfo())
+                .append("\n")
+                .append(df.format(new Date()))
+                .append("\n")
+                .append(new String(data.getData()));
         try {
-            Path path = Path.of("/data/log/"+key+".txt");
-            Files.write(path, data.getData());
-            logEventRepository.save(event);
+            event = logEventRepository.save(event);
+            var dir = Path.of("/data/log/"+sid);
+            var dirFile = dir.toFile();
+            if (!dirFile.exists() && !dirFile.mkdirs()) {
+                throw new RuntimeException("could not create directory " + dir);
+            }
+            Files.write(dir.resolve(String.format("%d.%s.txt", event.getId(), data.getSeverity())), sb.toString().getBytes());
         } catch (Exception e) {
             logger.error(e.toString());
         }

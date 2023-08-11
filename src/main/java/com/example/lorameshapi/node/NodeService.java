@@ -39,7 +39,7 @@ public class NodeService {
     }
 
     public void put(NodeInfo data) {
-        logger.info("updating node: "+data.getSerialId());
+        logger.info("updating node "+data.getSerialId()+": " + data.getStatus());
         Node entity = getById(data.getSerialId());
         entity.setStatus(data.getStatus());
         entity.setLastUpdated(System.currentTimeMillis());
@@ -49,16 +49,15 @@ public class NodeService {
     }
 
     public List<String> feed(Message message) {
-        logger.info("message feed: "+message.getHeader() + "|" + new String(message.getData()));
+        logger.info("message feed: "+message.getHeader() + Arrays.toString(message.getData()));
         int header = message.getHeader();
         int nodeId = MessageUtil.nodeId(header);
 
         List<String> controllerCommands = new ArrayList<>();
-
         var lost = registerAndListLosses(header);
         if (lost.size() > 0) {
-            StringBuilder job = new StringBuilder(String.format("%d trace ", nodeId));
-            for (int i : lost) job.append(";").append(i);
+            StringBuilder job = new StringBuilder(String.format("%d trace", nodeId));
+            for (int i : lost) job.append(" ").append(i);
             controllerCommands.add(job.toString());
         }
 
@@ -68,8 +67,8 @@ public class NodeService {
             controllerCommands.add(String.format("%d invite %d %d", nodeId, assignedId, id));
         } else if (MessageUtil.isRetx(header)) {
             var updates = updateRouting(message);
-            StringBuilder job = new StringBuilder(String.format("%d update ", nodeId));
-            for (int i : updates) job.append(";").append(i);
+            StringBuilder job = new StringBuilder(String.format("%d update", nodeId));
+            for (int i : updates) job.append(" ").append(i);
             controllerCommands.add(job.toString());
         }
 
@@ -114,10 +113,11 @@ public class NodeService {
 
         if (counter == entity.getNextReceivingCounter()) {
             entity.setNextReceivingCounter((counter + 1) % counterLimit);
-        } else if(entity.getMissingMessages().contains(counter)) {
+            entity = nodeRepository.save(entity);
+        } else if (entity.getMissingMessages().contains(counter)) {
             entity.getMissingMessages().remove(counter);
             nodeRepository.save(entity);
-            return new HashSet<>();
+            return Set.of(counter | 64);
         } else {
             for (int i = entity.getNextReceivingCounter(); i != counter; i = ((i + 1) % counterLimit)) {
                 entity.getMissingMessages().add(i);
@@ -137,7 +137,7 @@ public class NodeService {
         node.setStatus(NodeStatus.Node);
         node.setLastUpdated(System.currentTimeMillis());
         node.getRetx().putAll(MessageUtil.retx(message.getData()));
-        nodeRepository.save(node);
+        node = nodeRepository.saveAndFlush(node);
 
         Set<Integer> current = node.getRouting();
         Set<Integer> calculated = runFloydWarshall(node);
@@ -151,15 +151,14 @@ public class NodeService {
 
     Set<Integer> runFloydWarshall(Node nodeToUpdate) {
         long cutoff = System.currentTimeMillis() - 500000;
-        var controllers = nodeRepository.findAllByStatusAndLastUpdatedGreaterThanEqual(NodeStatus.Controller, cutoff);
-        var nodes = nodeRepository.findAllByStatusAndLastUpdatedGreaterThanEqual(NodeStatus.Node, cutoff);
+        var all = nodeRepository.findAllByLastUpdatedGreaterThanEqual(cutoff);
+        var controllers = all.stream().filter(n -> n.getStatus() == NodeStatus.Controller).toList();
 
-        Map<Node, Integer> index = new HashMap<>(){{
-            int i = 0;
-            for (Node n : controllers) put(n, i++);
-            for (Node n : nodes) put(n, i++);
-        }};
-        var all = new HashSet<>(index.keySet());
+        if (controllers.isEmpty()) {
+            logger.warn("no controller found");
+            return Set.of();
+        }
+
         Map<Integer, Node> byNodeId = new HashMap<>();
         all.forEach(node -> byNodeId.put(node.getNodeId(), node));
 
