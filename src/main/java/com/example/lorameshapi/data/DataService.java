@@ -1,6 +1,7 @@
 package com.example.lorameshapi.data;
 
 import com.example.lorameshapi.node.NodeService;
+import com.example.lorameshapi.util.MessageUtil;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,9 +30,9 @@ public class DataService {
         if (!file.exists() && !file.mkdirs()) {
             logger.warn("could not create directory " + file);
         }
-        var nodeId = MessageUtil.nodeId(message.getHeader());
+        var address = MessageUtil.address(message.getHeader());
         var counter = MessageUtil.counter(message.getHeader());
-        var node =nodeService.resolveNodeId(nodeId);
+        var node =nodeService.resolveAddress(address);
         String key = String.format("%s-%s-%d", node.getId(), df.format(new Date()), message.getHeader());
 
         try {
@@ -39,7 +40,7 @@ public class DataService {
             Files.write(path, message.getData());
             Data data = new Data();
             data.setHeader(message.getHeader());
-            data.setNodeId(nodeId);
+            data.setAddress(address);
             data.setCounter(counter);
             this.dataRepository.save(data);
         } catch (Exception e) {

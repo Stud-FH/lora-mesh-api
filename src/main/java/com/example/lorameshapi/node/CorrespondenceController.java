@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
-import java.util.Optional;
 
 @AllArgsConstructor
 @RestController
@@ -20,17 +19,17 @@ public class CorrespondenceController {
         return nodeService.registerAndListLosses(header);
     }
 
-    @GetMapping("/out/{nodeId}")
+    @GetMapping("/out/{address}")
     public int get(
-            @PathVariable int nodeId
+            @PathVariable int address
     ) {
-        return nodeService.getCorrespondenceCounter(nodeId, false);
+        return nodeService.getCorrespondenceCounter(address, false);
     }
 
-    @PostMapping("/out/{nodeId}")
+    @PostMapping("/out/{address}")
     public int getAndIncrement(
-            @PathVariable int nodeId
+            @PathVariable int address
     ) {
-        return nodeService.getCorrespondenceCounter(nodeId, true);
+        return nodeService.getCorrespondenceCounter(address, true);
     }
 }

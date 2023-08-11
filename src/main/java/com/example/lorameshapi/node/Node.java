@@ -16,7 +16,7 @@ public class Node {
     private Long id;
 
     @Column
-    private int nodeId;
+    private int address;
 
     @Enumerated(EnumType.STRING)
     private NodeStatus status;

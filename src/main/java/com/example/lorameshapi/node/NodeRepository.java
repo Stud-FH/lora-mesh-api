@@ -7,7 +7,7 @@ import java.util.Optional;
 
 public interface NodeRepository extends JpaRepository<Node, Long> {
 
-    boolean existsByNodeId(int nodeId);
-    Optional<Node> findByNodeId(int nodeId);
+    boolean existsByAddress(int address);
+    Optional<Node> findByAddress(int address);
     Collection<Node> findAllByLastUpdatedGreaterThanEqual(long lastUpdated);
 }

@@ -8,8 +8,8 @@ import java.util.Map;
 @Getter
 @Setter
 public class NodeInfo {
-    private long serialId;
-    private int nodeId;
+    private long id;
+    private int address;
     private NodeStatus status;
     private Map<Integer, Double> retx;
 }

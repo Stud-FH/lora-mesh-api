@@ -16,8 +16,8 @@ public class Data {
 
     @Id
     @GeneratedValue
-    @Column(name="id", nullable = false)
-    private Long id;
+    @Column(name="data_id", nullable = false)
+    private Long dataId;
 
     @Column
     private Date timestamp = new Date();
@@ -26,7 +26,7 @@ public class Data {
     private int header;
 
     @Column
-    private int nodeId;
+    private int address;
 
     @Column
     private int counter;

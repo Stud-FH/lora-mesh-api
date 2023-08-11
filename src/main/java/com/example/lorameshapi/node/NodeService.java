@@ -1,7 +1,7 @@
 package com.example.lorameshapi.node;
 
 import com.example.lorameshapi.data.Message;
-import com.example.lorameshapi.data.MessageUtil;
+import com.example.lorameshapi.util.MessageUtil;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,13 +17,16 @@ import java.util.stream.Collectors;
 public class NodeService {
 
     private final Logger logger = LoggerFactory.getLogger(NodeService.class);
-
-    private static final int counterLimit = 32;
     private final NodeRepository nodeRepository;
 
-    public Node resolveNodeId(int nodeId) {
-        return nodeRepository.findByNodeId(nodeId).orElseThrow(
-                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "node id " + nodeId + " not found"));
+    public Collection<Node> liveNodes() {
+        long threshold = System.currentTimeMillis() - 500000;
+        return nodeRepository.findAllByLastUpdatedGreaterThanEqual(threshold);
+    }
+
+    public Node resolveAddress(int address) {
+        return nodeRepository.findByAddress(address & MessageUtil.ADDRESS_MASK).orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "address " + address + " not found"));
     }
 
     public Node getById(long id) {
@@ -33,14 +36,14 @@ public class NodeService {
             created.setId(id);
             created.setLastUpdated(System.currentTimeMillis());
             created.setStatus(NodeStatus.Down);
-            created.setNodeId(-1);
+            created.setAddress(-1);
             return nodeRepository.save(created);
         });
     }
 
     public void put(NodeInfo data) {
-        logger.info("updating node "+data.getSerialId()+": " + data.getStatus());
-        Node entity = getById(data.getSerialId());
+        logger.info("updating node "+data.getId()+": " + data.getStatus());
+        Node entity = getById(data.getId());
         entity.setStatus(data.getStatus());
         entity.setLastUpdated(System.currentTimeMillis());
         entity.getRetx().replaceAll((k,v) -> 0.0);
@@ -51,23 +54,23 @@ public class NodeService {
     public List<String> feed(Message message) {
         logger.info("message feed: "+message.getHeader() + Arrays.toString(message.getData()));
         int header = message.getHeader();
-        int nodeId = MessageUtil.nodeId(header);
+        int address = MessageUtil.address(header);
 
         List<String> controllerCommands = new ArrayList<>();
         var lost = registerAndListLosses(header);
         if (lost.size() > 0) {
-            StringBuilder job = new StringBuilder(String.format("%d trace", nodeId));
+            StringBuilder job = new StringBuilder(String.format("%d trace", address));
             for (int i : lost) job.append(" ").append(i);
             controllerCommands.add(job.toString());
         }
 
-        if (nodeId == 0 || MessageUtil.isJoin(header)) {
-            long id = Long.parseLong(new String(message.getData()).substring(1));
-            int assignedId = allocateNodeId(id);
-            controllerCommands.add(String.format("%d invite %d %d", nodeId, assignedId, id));
+        if (address == 0 || MessageUtil.isJoin(header)) {
+            var data = MessageUtil.joinData(message.getData());
+            int allocateAddress = allocateAddress(data.id());
+            controllerCommands.add(String.format("%d invite %d %d", address, allocateAddress, data.id()));
         } else if (MessageUtil.isRetx(header)) {
             var updates = updateRouting(message);
-            StringBuilder job = new StringBuilder(String.format("%d update", nodeId));
+            StringBuilder job = new StringBuilder(String.format("%d update", address));
             for (int i : updates) job.append(" ").append(i);
             controllerCommands.add(job.toString());
         }
@@ -75,54 +78,58 @@ public class NodeService {
         return controllerCommands;
     }
 
-    public void putRetx(int nodeId, int otherId, double retx) {
-        Node entity = resolveNodeId(nodeId);
+    public void putRetx(int address, int otherId, double retx) {
+        Node entity = resolveAddress(address);
         entity.getRetx().put(otherId, retx);
         nodeRepository.save(entity);
     }
 
-    public int allocateNodeId(long id) {
-        logger.info("allocating node id: "+id);
+    public int allocateAddress(long id) {
         Node entity = getById(id);
-        if (entity.getNodeId() > 0) return entity.getNodeId();
-        int nodeId = 1;
-        while (nodeRepository.existsByNodeId(nodeId)) nodeId++;
-        if (nodeId > 63) throw new IllegalStateException("node ids exhausted");
-        entity.setNodeId(nodeId);
+        int address = entity.getAddress();
+        if (address > 0) {
+            logger.info(String.format("resolved address %d of node %d", address, id));
+            return address;
+        }
+        logger.info("allocating address for node: "+id);
+        address = 1;
+        while (nodeRepository.existsByAddress(address)) address++;
+        if (address > MessageUtil.ADDRESS_LIMIT) throw new IllegalStateException("node ids exhausted");
+        entity.setAddress(address);
         entity.setStatus(NodeStatus.Joining);
         entity.setLastUpdated(System.currentTimeMillis());
         nodeRepository.save(entity);
-        logger.info("allocated node id: "+nodeId);
-        return nodeId;
+        logger.info(String.format("assigning address %d to node %d", address, id));
+        return address;
     }
 
-    public int getCorrespondenceCounter(int nodeId, boolean increment) {
-        var entity = resolveNodeId(nodeId);
+    public int getCorrespondenceCounter(int address, boolean increment) {
+        var entity = resolveAddress(address);
         int counter = entity.getSendingCounter();
         if (increment) {
-            entity.setSendingCounter((counter + 1) % counterLimit);
+            entity.setSendingCounter((counter + 1) % MessageUtil.COUNTER_LIMIT);
             nodeRepository.save(entity);
         }
         return counter;
     }
 
     public Collection<Integer> registerAndListLosses(int header) {
-        int nodeId = MessageUtil.nodeId(header);
+        int address = MessageUtil.address(header);
         int counter = MessageUtil.counter(header);
-        var entity = resolveNodeId(nodeId);
+        var entity = resolveAddress(address);
 
         if (counter == entity.getNextReceivingCounter()) {
-            entity.setNextReceivingCounter((counter + 1) % counterLimit);
+            entity.setNextReceivingCounter((counter + 1) % MessageUtil.COUNTER_LIMIT);
             entity = nodeRepository.save(entity);
         } else if (entity.getMissingMessages().contains(counter)) {
             entity.getMissingMessages().remove(counter);
             nodeRepository.save(entity);
-            return Set.of(counter | 64);
+            return Set.of(counter | MessageUtil.DELETE_BIT);
         } else {
-            for (int i = entity.getNextReceivingCounter(); i != counter; i = ((i + 1) % counterLimit)) {
+            for (int i = entity.getNextReceivingCounter(); i != counter; i = ((i + 1) % MessageUtil.COUNTER_LIMIT)) {
                 entity.getMissingMessages().add(i);
             }
-            entity.setNextReceivingCounter((counter + 1) % counterLimit);
+            entity.setNextReceivingCounter((counter + 1) % MessageUtil.COUNTER_LIMIT);
             entity = nodeRepository.save(entity);
         }
         return entity.getMissingMessages();
@@ -133,7 +140,7 @@ public class NodeService {
     }
 
     Set<Integer> updateRouting(Message message) {
-        Node node = resolveNodeId(MessageUtil.nodeId(message.getHeader()));
+        Node node = resolveAddress(MessageUtil.address(message.getHeader()));
         node.setStatus(NodeStatus.Node);
         node.setLastUpdated(System.currentTimeMillis());
         node.getRetx().putAll(MessageUtil.retx(message.getData()));
@@ -143,15 +150,14 @@ public class NodeService {
         Set<Integer> calculated = runFloydWarshall(node);
         Set<Integer> updates = new HashSet<>();
         updates.addAll(calculated.stream().filter(i -> !current.contains(i)).toList());
-        updates.addAll(current.stream().filter(i -> !calculated.contains(i)).map(i -> i | 64).toList());
+        updates.addAll(current.stream().filter(i -> !calculated.contains(i)).map(i -> i | MessageUtil.DELETE_BIT).toList());
         return updates;
     }
 
 
 
     Set<Integer> runFloydWarshall(Node nodeToUpdate) {
-        long cutoff = System.currentTimeMillis() - 500000;
-        var all = nodeRepository.findAllByLastUpdatedGreaterThanEqual(cutoff);
+        var all = liveNodes();
         var controllers = all.stream().filter(n -> n.getStatus() == NodeStatus.Controller).toList();
 
         if (controllers.isEmpty()) {
@@ -159,8 +165,8 @@ public class NodeService {
             return Set.of();
         }
 
-        Map<Integer, Node> byNodeId = new HashMap<>();
-        all.forEach(node -> byNodeId.put(node.getNodeId(), node));
+        Map<Integer, Node> byAddress = new HashMap<>();
+        all.forEach(node -> byAddress.put(node.getAddress(), node));
 
         all.forEach(node -> {
             Map<Node, Double> dist = new HashMap<>();
@@ -176,7 +182,7 @@ public class NodeService {
 
             node.getRetx().forEach((key, value) -> {
                 if (value > 0.1) {
-                    Node v = byNodeId.get(key);
+                    Node v = byAddress.get(key);
                     dist.put(v, 1 / value);
                     trace.put(v, v);
                 }
@@ -220,8 +226,8 @@ public class NodeService {
         }
 
         Set<Integer> calculatedRouting = new HashSet<>();
-        calculatedRouting.addAll(nodeToUpdate.getUplinkRouting().stream().map(Node::getNodeId).collect(Collectors.toSet()));
-        calculatedRouting.addAll(nodeToUpdate.getDownlinkRouting().stream().map(Node::getNodeId).map(i -> i | 128).collect(Collectors.toSet()));
+        calculatedRouting.addAll(nodeToUpdate.getUplinkRouting().stream().map(Node::getAddress).collect(Collectors.toSet()));
+        calculatedRouting.addAll(nodeToUpdate.getDownlinkRouting().stream().map(Node::getAddress).map(i -> i | MessageUtil.DOWNLINK_BIT).collect(Collectors.toSet()));
         return calculatedRouting;
     }
 

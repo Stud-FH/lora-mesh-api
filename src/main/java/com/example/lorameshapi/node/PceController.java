@@ -4,7 +4,6 @@ import com.example.lorameshapi.data.Message;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @AllArgsConstructor
@@ -21,13 +20,13 @@ public class PceController {
         return configService.getChannel();
     }
 
-    @PostMapping("/node-id")
-    public int allocateNodeId(
+    @PostMapping("/address")
+    public int allocateAddress(
             @RequestParam int mediatorId,
             @RequestParam double mediatorRetx,
-            @RequestBody long serialId
+            @RequestBody long id
     ) {
-        var result = nodeService.allocateNodeId(serialId);
+        var result = nodeService.allocateAddress(id);
         if (mediatorId != -1) {
             nodeService.putRetx(mediatorId, result, mediatorRetx);
         }
