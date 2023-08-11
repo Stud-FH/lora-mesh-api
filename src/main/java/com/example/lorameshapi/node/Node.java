@@ -41,16 +41,4 @@ public class Node {
 
     @ElementCollection
     private List<String> statusKeys = new ArrayList<>();
-
-    @Transient
-    private transient Map<Node, Double> distance;
-
-    @Transient
-    private transient Map<Node, Node> trace;
-
-    @Transient
-    private transient Set<Node> uplinkRouting;
-
-    @Transient
-    private transient Set<Node> downlinkRouting;
 }

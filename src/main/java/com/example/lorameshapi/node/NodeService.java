@@ -46,8 +46,7 @@ public class NodeService {
         Node entity = getById(data.getId());
         entity.setStatus(data.getStatus());
         entity.setLastUpdated(System.currentTimeMillis());
-        entity.getRetx().replaceAll((k,v) -> 0.0);
-        entity.getRetx().putAll(data.getRetx());
+        entity.setRetx(data.getRetx());
         nodeRepository.save(entity);
     }
 
@@ -139,7 +138,7 @@ public class NodeService {
         return nodeRepository.findAll();
     }
 
-    Set<Integer> updateRouting(Message message, long controllerId) {
+    private synchronized Set<Integer> updateRouting(Message message, long controllerId) {
         Node node = resolveAddress(MessageUtil.address(message.getHeader()));
         if (node.getId() == controllerId) {
             node.setStatus(NodeStatus.Controller);
@@ -160,7 +159,7 @@ public class NodeService {
 
 
 
-    Set<Integer> runFloydWarshall(Node nodeToUpdate) {
+    private Set<Integer> runFloydWarshall(Node nodeToUpdate) {
         var all = liveNodes();
         var controllers = all.stream().filter(n -> n.getStatus() == NodeStatus.Controller).toList();
 
@@ -170,36 +169,30 @@ public class NodeService {
         }
 
         Map<Integer, Node> byAddress = new HashMap<>();
+        Map<Node, Map<Node, Double>> distance = new HashMap<>();
+        Map<Node, Map<Node, Node>> trace = new HashMap<>();
+        Map<Node, Set<Node>> uplinkRouting = new HashMap<>();
+        Map<Node, Set<Node>> downlinkRouting = new HashMap<>();
+
         all.forEach(node -> byAddress.put(node.getAddress(), node));
 
-        all.forEach(node -> {
-            Map<Node, Double> dist = new HashMap<>();
-            node.setDistance(dist);
-            dist.put(node, 0.0);
-
-            Map<Node, Node> trace = new HashMap<>();
-            node.setTrace(trace);
-            trace.put(node, node);
-
-            node.setUplinkRouting(new HashSet<>());
-            node.setDownlinkRouting(new HashSet<>());
-
-            node.getRetx().forEach((key, value) -> {
-                if (value > 0.1) {
-                    Node v = byAddress.get(key);
-                    dist.put(v, 1 / value);
-                    trace.put(v, v);
-                }
-            });
-        });
+        for (var node : all) {
+            distance.put(node, initialDistanceMap(node, byAddress));
+            trace.put(node, initialTraceMap(node, byAddress));
+            uplinkRouting.put(node, new HashSet<>());
+            downlinkRouting.put(node, new HashSet<>());
+        }
 
         // find all shortest paths
         for (Node k : all) {
             for (Node u : all) {
                 for (Node v : all) {
-                    if (distance(u, k) + distance(k, v) < distance(u, v)) {
-                        u.getDistance().put(v, distance(u, k) + distance(k, v));
-                        u.getTrace().put(v, k);
+                    var uk = distance.get(u).getOrDefault(k, Double.MAX_VALUE);
+                    var kv = distance.get(k).getOrDefault(v, Double.MAX_VALUE);
+                    var uv = distance.get(u).getOrDefault(v, Double.MAX_VALUE);
+                    if (uk + kv < uv) {
+                        distance.get(u).put(v, uk + kv);
+                        trace.get(u).put(v, k);
                     }
                 }
             }
@@ -214,28 +207,41 @@ public class NodeService {
                     uplinkCtl = downlinkCtl = u;
                     break;
                 }
-                if (uplinkCtl == null || distance(u, ctl) < distance(u, uplinkCtl)) {
+                if (uplinkCtl == null || distance.get(u).get(ctl) < distance.get(u).get(uplinkCtl)) {
                     uplinkCtl = ctl;
                 }
-                if (downlinkCtl == null || distance(ctl, u) < distance(downlinkCtl, u)) {
+                if (downlinkCtl == null || distance.get(ctl).get(u) < distance.get(downlinkCtl).get(u)) {
                     downlinkCtl = ctl;
                 }
             }
-
-            for (Node v = u.getTrace().get(uplinkCtl); v != uplinkCtl; v = v.getTrace().get(uplinkCtl))
-                v.getUplinkRouting().add(u);
-
-            for (Node v = downlinkCtl.getTrace().get(u); v != u; v = v.getTrace().get(u))
-                v.getDownlinkRouting().add(u);
+            fillRouting(u, uplinkCtl, trace, uplinkRouting);
+            fillRouting(downlinkCtl, u, trace, downlinkRouting);
         }
 
         Set<Integer> calculatedRouting = new HashSet<>();
-        calculatedRouting.addAll(nodeToUpdate.getUplinkRouting().stream().map(Node::getAddress).collect(Collectors.toSet()));
-        calculatedRouting.addAll(nodeToUpdate.getDownlinkRouting().stream().map(Node::getAddress).map(i -> i | MessageUtil.DOWNLINK_BIT).collect(Collectors.toSet()));
+        calculatedRouting.addAll(uplinkRouting.get(nodeToUpdate).stream().map(Node::getAddress).collect(Collectors.toSet()));
+        calculatedRouting.addAll(downlinkRouting.get(nodeToUpdate).stream().map(Node::getAddress).map(i -> i | MessageUtil.DOWNLINK_BIT).collect(Collectors.toSet()));
         return calculatedRouting;
     }
 
-    private double distance(Node u, Node v) {
-        return u.getDistance().getOrDefault(v, Double.MAX_VALUE);
+    private  Map<Node, Double> initialDistanceMap(Node node, Map<Integer, Node> byAddress) {
+        Map<Node, Double> map = new HashMap<>();
+        map.put(node, 0.0);
+        node.getRetx().forEach((key, value) -> map.put(byAddress.get(key), 1.0 / value));
+        return map;
+    }
+
+    private  Map<Node, Node> initialTraceMap(Node node, Map<Integer, Node> byAddress) {
+        Map<Node, Node> map = new HashMap<>();
+        node.getRetx().keySet().stream().map(byAddress::get).forEach((neighbour) -> map.put(neighbour, neighbour));
+        map.put(node, node);
+        return map;
+    }
+
+    private void fillRouting(Node start, Node end, Map<Node, Map<Node, Node>> trace, Map<Node, Set<Node>> routing) {
+        if (start == null) return;
+        for (Node v = trace.get(start).get(end); v != null && v != end; v = trace.get(v).get(end)) {
+            routing.get(v).add(start);
+        }
     }
 }
