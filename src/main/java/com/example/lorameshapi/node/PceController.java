@@ -35,8 +35,9 @@ public class PceController {
 
     @PostMapping("/feed")
     public List<String> feed(
-            @RequestBody Message data) {
-        return nodeService.feed(data);
+            @RequestBody Message data,
+            @RequestParam long controllerId) {
+        return nodeService.feed(data, controllerId);
     }
 
     @GetMapping("/q")

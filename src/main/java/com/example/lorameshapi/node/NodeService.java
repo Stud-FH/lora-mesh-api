@@ -51,7 +51,7 @@ public class NodeService {
         nodeRepository.save(entity);
     }
 
-    public List<String> feed(Message message) {
+    public List<String> feed(Message message, long controllerId) {
         logger.info("message feed: "+message.getHeader() + Arrays.toString(message.getData()));
         int header = message.getHeader();
         int address = MessageUtil.address(header);
@@ -69,7 +69,7 @@ public class NodeService {
             int allocateAddress = allocateAddress(data.id());
             controllerCommands.add(String.format("%d invite %d %d", address, allocateAddress, data.id()));
         } else if (MessageUtil.isRetx(header)) {
-            var updates = updateRouting(message);
+            var updates = updateRouting(message, controllerId);
             StringBuilder job = new StringBuilder(String.format("%d update", address));
             for (int i : updates) job.append(" ").append(i);
             controllerCommands.add(job.toString());
@@ -139,9 +139,13 @@ public class NodeService {
         return nodeRepository.findAll();
     }
 
-    Set<Integer> updateRouting(Message message) {
+    Set<Integer> updateRouting(Message message, long controllerId) {
         Node node = resolveAddress(MessageUtil.address(message.getHeader()));
-        node.setStatus(NodeStatus.Node);
+        if (node.getId() == controllerId) {
+            node.setStatus(NodeStatus.Controller);
+        } else {
+            node.setStatus(NodeStatus.Node);
+        }
         node.setLastUpdated(System.currentTimeMillis());
         node.getRetx().putAll(MessageUtil.retx(message.getData()));
         node = nodeRepository.saveAndFlush(node);
